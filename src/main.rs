@@ -3,6 +3,20 @@ use std::io::{self, stdin, stdout, Write, Read};
 use std::env;
 use crossterm::{terminal::{enable_raw_mode, disable_raw_mode}, cursor};
 
+fn appendbuf(input: &mut String, c: char) {
+    input.push(c); // Add the character to the input buffer
+    print!("{}", c);
+    stdout().flush().unwrap(); // Display the character as it's typed
+}
+
+fn backspace(input: &mut String) {
+    if !input.is_empty() {
+        input.pop(); // Remove the last character from the input buffer
+        print!("{} {}", cursor::MoveLeft(1), cursor::MoveLeft(1)); // Move cursor back and clear character
+        stdout().flush().unwrap();
+    }
+}
+
 fn main() -> std::io::Result<()> {
     let mut history: Vec<String> = Vec::new();
     enable_raw_mode().unwrap(); // Enable raw mode for capturing input
@@ -58,20 +72,13 @@ fn main() -> std::io::Result<()> {
                 input.clear(); // Clear the input buffer for the next command
                 break;
             } else if c == '\x08' || c == '\x7F' { // Handle backspace (ASCII codes for backspace)
-                if !input.is_empty() {
-                    input.pop(); // Remove the last character from the input buffer
-                    print!("{} {}", cursor::MoveLeft(1), cursor::MoveLeft(1)); // Move cursor back and clear character
-                    stdout().flush().unwrap();
-                }
+                backspace(&mut input);
             } else {
-                input.push(c); // Add the character to the input buffer
-                print!("{}", c);
-                stdout().flush().unwrap(); // Display the character as it's typed
+                appendbuf(&mut input, c);
             }
 
-            if c == 'z' { // If the user presses 'z', disable raw mode
+            if c == '\x1A' { // If the user presses 'z', disable raw mode
                 disable_raw_mode().unwrap();
-                return Ok(());
             }
         }
     }

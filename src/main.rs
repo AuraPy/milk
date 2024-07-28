@@ -102,7 +102,7 @@ fn main() -> std::io::Result<()> {
                                 .spawn();
 
                             match child {
-                                Ok(mut child) => { let _ = child.wait(); }
+                                Ok(mut child) => {let _ = child.wait(); enable_raw_mode().unwrap();}
                                 Err(e) => eprintln!("{}", e),
                             }
                         }
@@ -113,8 +113,6 @@ fn main() -> std::io::Result<()> {
                 break;
             } else if c == '\x08' || c == '\x7F' { // Handle backspace (ASCII codes for backspace)
                 backspace(&mut input);
-            } else if c.to_string() == "\x1B[A" {
-                historyup(&mut input, path.clone(), &mut history, historyindex)
             } else {
                 appendbuf(&mut input, c);
             }

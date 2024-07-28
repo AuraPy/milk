@@ -17,20 +17,60 @@ fn backspace(input: &mut String) {
     }
 }
 
+fn historyup(input: &mut String, path: std::path::PathBuf, history: &mut Vec<String>, historyindex: &mut usize) {
+    if *historyindex != 0 {
+        *historyindex -= 1;
+    }
+    if history.len() != 0 {
+        *input = (*history[*historyindex]).to_string();
+        print!("\r\x1B[K");
+        print!("\r{}> ", path.display());
+        print!("{input}");
+        stdout().flush().unwrap();
+    }
+}
+
+fn historydown(input: &mut String, path: std::path::PathBuf, history: &mut Vec<String>, historyindex: &mut usize) {
+    if history.len() != 0 {
+        if *historyindex != history.len() - 1 {
+            *historyindex += 1;
+        }
+        *input = (*history[*historyindex]).to_string();
+        print!("\r\x1B[K");
+        print!("\r{}> ", path.display());
+        print!("{input}");
+        stdout().flush().unwrap();
+    }
+}
+
 fn main() -> std::io::Result<()> {
     let mut history: Vec<String> = Vec::new();
     enable_raw_mode().unwrap(); // Enable raw mode for capturing input
     let mut input = String::new(); // Input buffer
 
     loop {
-        let path = env::current_dir()?;
+        let path: std::path::PathBuf = env::current_dir()?;
+        let mut historyindex: &mut usize = &mut history.len();
+        let mut escape_sequence = Vec::new();
         print!("\r{}> ", path.display());
         stdout().flush().unwrap(); // Ensure prompt is displayed
 
         for b in stdin().bytes() {
             let c = b.unwrap() as char;
 
-            if c == '\r' { // If the user presses Enter
+            if !escape_sequence.is_empty() {
+                escape_sequence.push(c as u8);
+                if escape_sequence.len() == 3 {
+                    if escape_sequence == vec![0x1B, b'[', b'A'] { // Up arrow key
+                        historyup(&mut input, path.clone(), &mut history, &mut historyindex);
+                    } else if escape_sequence == vec![0x1B, b'[', b'B'] { // Down arrow key
+                        historydown(&mut input, path.clone(), &mut history, &mut historyindex);
+                    }
+                    escape_sequence.clear();
+                }
+            } else if c == '\x1B' { // Start of an escape sequence
+                escape_sequence.push(c as u8);
+            } else if c == '\r' { // If the user presses Enter
                 println!();
                 let trimmed_input = input.trim(); // Remove leading and trailing whitespace
                 history.push(trimmed_input.to_string()); // Add the command to history
@@ -73,11 +113,13 @@ fn main() -> std::io::Result<()> {
                 break;
             } else if c == '\x08' || c == '\x7F' { // Handle backspace (ASCII codes for backspace)
                 backspace(&mut input);
+            } else if c.to_string() == "\x1B[A" {
+                historyup(&mut input, path.clone(), &mut history, historyindex)
             } else {
                 appendbuf(&mut input, c);
             }
 
-            if c == '\x1A' { // If the user presses 'z', disable raw mode
+            if c == '\x1A' { // If the user presses ctrl+z, disable raw mode
                 disable_raw_mode().unwrap();
             }
         }
